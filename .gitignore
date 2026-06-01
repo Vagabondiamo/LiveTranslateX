@@ -1,0 +1,15 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# API keys - NEVER commit these
+# Store in local.properties:
+# DEEPL_API_KEY=your_key
+# OPENAI_API_KEY=your_key
