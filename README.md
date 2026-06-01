@@ -29,7 +29,7 @@ App Android Kotlin per traduzione in tempo reale tramite OCR + overlay.
 
 ```bash
 # Clone
-git clone https://github.com/TUO_USERNAME/LiveTranslateX.git
+git clone https://github.com/Vagabondiamo/LiveTranslateX.git
 cd LiveTranslateX
 
 # API keys (opzionale)
