@@ -3,7 +3,11 @@ package com.livetranslatex.presentation.home
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,7 +31,7 @@ data class HomeMenuItem(
 fun HomeScreen(navController: NavController) {
     val menuItems = listOf(
         HomeMenuItem("Traduci Schermo", "Overlay su qualsiasi app", Icons.Default.Tv, Screen.ScreenTranslate.route),
-        HomeMenuItem("Fotocamera", "Traduzione in tempo reale", Icons.Default.Camera, Screen.Camera.route),
+        HomeMenuItem("Fotocamera", "Traduzione in tempo reale", Icons.Default.Videocam, Screen.Camera.route),
         HomeMenuItem("Manga / Webtoon", "Lettore con traduzione integrata", Icons.Default.MenuBook, Screen.Manga.route),
         HomeMenuItem("Cronologia", "Traduzioni precedenti", Icons.Default.History, Screen.History.route),
         HomeMenuItem("Impostazioni", "OCR, traduttore, lingua", Icons.Default.Settings, Screen.Settings.route)

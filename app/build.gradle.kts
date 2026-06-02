@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.activity.compose)
     implementation(libs.navigation.compose)
     debugImplementation(libs.compose.ui.tooling)
@@ -108,6 +109,7 @@ dependencies {
 
     // Coroutines
     implementation(libs.coroutines.android)
+    implementation(libs.coroutines.play.services)
 
     // Network
     implementation(libs.retrofit)
