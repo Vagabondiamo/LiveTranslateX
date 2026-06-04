@@ -4,16 +4,11 @@ import android.graphics.Bitmap
 import com.livetranslatex.data.database.TranslationHistory
 import com.livetranslatex.data.database.TranslationHistoryDao
 import com.livetranslatex.data.ocr.OcrEngine
-import com.livetranslatex.data.translator.Translator
-import com.livetranslatex.domain.model.TranslationResult
-import com.livetranslatex.util.md5
-import kotlinx.coroutines.flow.Flow
-import javax.inject.Inject
-import javax.inject.Named
-
+import com.livetranslatex.data.translator.TranslatorEngine
+...
 class TranslationRepository @Inject constructor(
     private val ocrEngine: OcrEngine,
-    private val translator: Translator,
+    private val translator: TranslatorEngine,
     private val dao: TranslationHistoryDao
 ) {
     private var previousHash: String = ""
@@ -23,7 +18,7 @@ class TranslationRepository @Inject constructor(
         source: String,
         target: String
     ): List<TranslationResult> {
-        val blocks = ocrEngine.recognize(bitmap)
+        val blocks = ocrEngine.recognizeBlocks(bitmap)
         if (blocks.isEmpty()) return emptyList()
 
         val combinedText = blocks.joinToString("\n") { it.text }
@@ -33,8 +28,11 @@ class TranslationRepository @Inject constructor(
         if (hash == previousHash) return emptyList()
         previousHash = hash
 
+        translator.sourceLang = source
+        translator.targetLang = target
+
         return blocks.map { block ->
-            val translated = translator.translate(block.text, source, target)
+            val translated = translator.translate(block.text)
             dao.insert(
                 TranslationHistory(
                     original = block.text,
@@ -46,7 +44,7 @@ class TranslationRepository @Inject constructor(
             TranslationResult(
                 original = block.text,
                 translated = translated,
-                bounds = block.bounds
+                bounds = block.boundingBox ?: android.graphics.Rect()
             )
         }
     }
