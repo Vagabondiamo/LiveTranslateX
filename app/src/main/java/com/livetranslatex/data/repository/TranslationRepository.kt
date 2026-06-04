@@ -5,7 +5,12 @@ import com.livetranslatex.data.database.TranslationHistory
 import com.livetranslatex.data.database.TranslationHistoryDao
 import com.livetranslatex.data.ocr.OcrEngine
 import com.livetranslatex.data.translator.TranslatorEngine
-...
+import com.livetranslatex.domain.model.TranslationResult
+import com.livetranslatex.util.md5
+import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
+import javax.inject.Named
+
 class TranslationRepository @Inject constructor(
     private val ocrEngine: OcrEngine,
     private val translator: TranslatorEngine,
