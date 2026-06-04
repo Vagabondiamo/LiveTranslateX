@@ -1,53 +1,66 @@
 package com.livetranslatex.data.ocr
 
 import android.graphics.Bitmap
-import android.graphics.Rect
-import com.livetranslatex.domain.model.TextBlock
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
-import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
-import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
+import javax.inject.Singleton
 
-interface OcrEngine {
-    suspend fun recognize(bitmap: Bitmap): List<TextBlock>
-}
+data class OcrBlock(
+    val text: String,
+    val boundingBox: android.graphics.Rect?
+)
 
-class MlKitOcrEngine @Inject constructor() : OcrEngine {
+@Singleton
+class OcrEngine @Inject constructor() {
 
-    private val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-    private val japaneseRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
-    private val chineseRecognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
-    private val koreanRecognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-    var sourceLanguage: String = "en"
-
-    override suspend fun recognize(bitmap: Bitmap): List<TextBlock> {
-        val image = InputImage.fromBitmap(bitmap, 0)
-        val recognizer = when (sourceLanguage) {
-            "ja" -> japaneseRecognizer
-            "zh" -> chineseRecognizer
-            "ko" -> koreanRecognizer
-            else -> latinRecognizer
-        }
-        val result = recognizer.process(image).await()
-        return result.textBlocks.map { block ->
-            TextBlock(
-                text = block.text,
-                bounds = block.boundingBox ?: Rect()
-            )
+    /** Restituisce tutto il testo come stringa unica */
+    suspend fun recognizeText(bitmap: Bitmap): String {
+        return try {
+            val image = InputImage.fromBitmap(bitmap, 0)
+            val result = recognizer.process(image).await()
+            result.text
+        } catch (e: Exception) {
+            ""
         }
     }
-}
 
-// Stub: PaddleOCR via JNI or ONNX Runtime (advanced - future implementation)
-class PaddleOcrEngine @Inject constructor() : OcrEngine {
-    override suspend fun recognize(bitmap: Bitmap): List<TextBlock> {
-        // TODO: Integrate PaddleOCR via JNI or ONNX Runtime for manga/CJK
-        // Placeholder returns empty list until native lib is integrated
-        return emptyList()
+    /** Restituisce blocchi di testo con bounding box (per overlay camera) */
+    suspend fun recognizeBlocks(bitmap: Bitmap): List<OcrBlock> {
+        return try {
+            val image = InputImage.fromBitmap(bitmap, 0)
+            val result = recognizer.process(image).await()
+            result.textBlocks
+                .filter { it.text.isNotBlank() }
+                .map { block ->
+                    OcrBlock(
+                        text = block.text,
+                        boundingBox = block.boundingBox
+                    )
+                }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /** Riconosce testo in una singola linea/area */
+    suspend fun recognizeRegion(bitmap: Bitmap, region: android.graphics.Rect): String {
+        return try {
+            val cropped = Bitmap.createBitmap(
+                bitmap,
+                region.left.coerceAtLeast(0),
+                region.top.coerceAtLeast(0),
+                region.width().coerceAtMost(bitmap.width - region.left),
+                region.height().coerceAtMost(bitmap.height - region.top)
+            )
+            recognizeText(cropped)
+        } catch (e: Exception) {
+            ""
+        }
     }
 }

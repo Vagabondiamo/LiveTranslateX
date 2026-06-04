@@ -41,9 +41,10 @@
 
         <!-- Overlay Service -->
         <service
-            android:name=".service.OverlayService"
+            android:name=".service.FloatingBubbleService"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
 
         <!-- Translation Service -->
         <service
