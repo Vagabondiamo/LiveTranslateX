@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
                             HomeScreen(navController = navController)
                         }
                         composable(Screen.Camera.route) {
-                            CameraScreen(navController = navController)
+                            CameraScreen(onBack = { navController.popBackStack() })
                         }
                         composable(Screen.ScreenTranslate.route) {
                             ScreenTranslateScreen(navController = navController)

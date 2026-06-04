@@ -5,7 +5,6 @@ import androidx.room.Room
 import com.livetranslatex.BuildConfig
 import com.livetranslatex.data.database.AppDatabase
 import com.livetranslatex.data.database.TranslationHistoryDao
-import com.livetranslatex.data.ocr.MlKitOcrEngine
 import com.livetranslatex.data.ocr.OcrEngine
 import com.livetranslatex.data.translator.DeepLApi
 import com.livetranslatex.data.translator.DeepLTranslator
@@ -84,5 +83,5 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideOcrEngine(): OcrEngine = MlKitOcrEngine()
+    fun provideOcrEngine(): OcrEngine = OcrEngine()
 }
