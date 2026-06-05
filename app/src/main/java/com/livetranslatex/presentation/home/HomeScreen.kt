@@ -1,40 +1,41 @@
 package com.livetranslatex.presentation.home
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tv
-import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
-import com.livetranslatex.presentation.Screen
 
-data class HomeMenuItem(
+data class HomeFeature(
+    val emoji: String,
     val title: String,
     val subtitle: String,
-    val icon: ImageVector,
-    val route: String
+    val color: Color,
+    val onClick: () -> Unit
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController) {
-    val menuItems = listOf(
-        HomeMenuItem("Traduci Schermo", "Overlay su qualsiasi app", Icons.Default.Tv, Screen.ScreenTranslate.route),
-        HomeMenuItem("Fotocamera", "Traduzione in tempo reale", Icons.Default.Videocam, Screen.Camera.route),
-        HomeMenuItem("Manga / Webtoon", "Lettore con traduzione integrata", Icons.Default.MenuBook, Screen.Manga.route),
-        HomeMenuItem("Cronologia", "Traduzioni precedenti", Icons.Default.History, Screen.History.route),
-        HomeMenuItem("Impostazioni", "OCR, traduttore, lingua", Icons.Default.Settings, Screen.Settings.route)
+fun HomeScreen(
+    onNavigateToScreen: () -> Unit,
+    onNavigateToCamera: () -> Unit,
+    onNavigateToImage: () -> Unit,
+    onNavigateToManga: () -> Unit,
+    onNavigateToHistory: () -> Unit,
+    onNavigateToSettings: () -> Unit
+) {
+    val features = listOf(
+        HomeFeature("📱", "Schermo Live", "Bolla fluttuante\nTraduce qualsiasi app", Color(0xFF1565C0), onNavigateToScreen),
+        HomeFeature("📷", "Camera Live", "AR in tempo reale\nPunta e traduci", Color(0xFF2E7D32), onNavigateToCamera),
+        HomeFeature("🖼️", "Immagini", "Galleria e foto\nOCR + traduzione", Color(0xFF6A1B9A), onNavigateToImage),
+        HomeFeature("📖", "Manga/Webtoon", "Balloon per balloon\nTraduzione contestuale", Color(0xFFAD1457), onNavigateToManga),
     )
 
     Scaffold(
@@ -42,53 +43,73 @@ fun HomeScreen(navController: NavController) {
             TopAppBar(
                 title = {
                     Column {
-                        Text("LiveTranslateX", fontWeight = FontWeight.Bold, fontSize = 22.sp)
-                        Text("Traduzione in tempo reale", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        Text("LiveTranslateX", fontWeight = FontWeight.Bold)
+                        Text("Traduttore universale", fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToHistory) {
+                        Text("📋", fontSize = 18.sp)
+                    }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Text("⚙️", fontSize = 18.sp)
                     }
                 }
             )
         }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            items(menuItems.size) { index ->
-                HomeMenuCard(item = menuItems[index]) {
-                    navController.navigate(menuItems[index].route)
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+
+            // Banner principale
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("🌐", fontSize = 40.sp)
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Text("Pronto a tradurre", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Scegli una modalità qui sotto",
+                            fontSize = 13.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+                    }
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun HomeMenuCard(item: HomeMenuItem, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Column {
-                Text(item.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                Text(item.subtitle, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+            Spacer(Modifier.height(20.dp))
+            Text("Modalità", fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+            Spacer(Modifier.height(12.dp))
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(features.size) { i ->
+                    val feature = features[i]
+                    Card(
+                        onClick = feature.onClick,
+                        modifier = Modifier.fillMaxWidth().height(130.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = feature.color)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(feature.emoji, fontSize = 28.sp)
+                            Column {
+                                Text(feature.title, color = Color.White,
+                                    fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text(feature.subtitle, color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 11.sp, lineHeight = 14.sp)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

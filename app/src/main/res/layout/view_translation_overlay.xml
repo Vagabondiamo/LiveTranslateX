@@ -3,31 +3,46 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="#CC000000"
-    android:padding="16dp">
+    android:background="#EE1A1A2E"
+    android:padding="12dp">
 
-    <ImageButton
-        android:id="@+id/btnClose"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:src="@android:drawable/ic_menu_close_clear_cancel"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:layout_gravity="end" />
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <ImageButton
+            android:id="@+id/btnClose"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:tint="#FFFFFF" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/tvOriginal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:layout_marginBottom="8dp" />
+        android:textColor="#99FFFFFF"
+        android:textSize="12sp"
+        android:maxLines="3"
+        android:ellipsize="end"
+        android:text="" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#44FFFFFF"
+        android:layout_marginVertical="8dp" />
 
     <TextView
         android:id="@+id/tvTranslated"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#4FC3F7"
-        android:textSize="16sp"
-        android:textStyle="bold" />
-
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:text="" />
 </LinearLayout>

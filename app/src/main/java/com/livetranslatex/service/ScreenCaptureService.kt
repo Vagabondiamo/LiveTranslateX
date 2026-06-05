@@ -1,24 +1,18 @@
 package com.livetranslatex.service
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
-import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.PixelFormat
+import android.app.*
+import android.content.*
+import android.graphics.*
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
-import android.media.Image
 import android.media.ImageReader
-import android.media.projection.MediaProjection
-import android.media.projection.MediaProjectionManager
-import android.os.IBinder
+import android.media.projection.*
+import android.os.*
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
-import com.livetranslatex.R
-import com.livetranslatex.data.repository.TranslationRepository
+import com.livetranslatex.data.ocr.OcrEngine
+import com.livetranslatex.data.translator.TranslatorEngine
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import javax.inject.Inject
@@ -26,128 +20,141 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class ScreenCaptureService : Service() {
 
-    companion object {
-        const val ACTION_START = "ACTION_START_CAPTURE"
-        const val ACTION_STOP = "ACTION_STOP_CAPTURE"
-        const val EXTRA_RESULT_CODE = "RESULT_CODE"
-        const val EXTRA_DATA = "DATA"
-        const val CHANNEL_ID = "screen_capture_channel"
-        const val NOTIFICATION_ID = 1
-    }
+    @Inject lateinit var ocrEngine: OcrEngine
+    @Inject lateinit var translatorEngine: TranslatorEngine
 
-    @Inject lateinit var repository: TranslationRepository
-
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var isCapturing = false
 
-    private var captureJob: Job? = null
-    private var captureIntervalMs: Long = 500L
-    private var sourceLanguage: String = "ja"
-    private var targetLanguage: String = "it"
+    companion object {
+        const val CHANNEL_ID = "screen_capture_channel"
+        const val ACTION_START = "com.livetranslatex.START_CAPTURE"
+        const val ACTION_STOP = "com.livetranslatex.STOP_CAPTURE"
+        const val ACTION_CAPTURE_ONCE = "com.livetranslatex.CAPTURE_ONCE"
+        const val EXTRA_RESULT_CODE = "result_code"
+        const val EXTRA_RESULT_DATA = "result_data"
+        const val BROADCAST_TRANSLATION = "com.livetranslatex.TRANSLATION_RESULT"
+    }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    private val captureReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == FloatingBubbleService.ACTION_CAPTURE) {
+                captureOnce()
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        startForeground(2, buildNotification())
+        registerReceiver(captureReceiver,
+            IntentFilter(FloatingBubbleService.ACTION_CAPTURE),
+            RECEIVER_NOT_EXPORTED)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
-                val data = intent.getParcelableExtra<Intent>(EXTRA_DATA)
-                if (data != null) startCapture(resultCode, data)
+                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED)
+                val resultData = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA) ?: return START_NOT_STICKY
+                startProjection(resultCode, resultData)
             }
-            ACTION_STOP -> stopCapture()
+            ACTION_STOP -> stopProjection()
+            ACTION_CAPTURE_ONCE -> captureOnce()
         }
         return START_STICKY
     }
 
-    private fun startCapture(resultCode: Int, data: Intent) {
-        startForeground(NOTIFICATION_ID, buildNotification())
+    private fun startProjection(resultCode: Int, resultData: Intent) {
+        val mpManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        mediaProjection = mpManager.getMediaProjection(resultCode, resultData)
+        setupVirtualDisplay()
+        isCapturing = true
+    }
 
+    private fun setupVirtualDisplay() {
         val metrics = DisplayMetrics()
-        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         @Suppress("DEPRECATION")
-        wm.defaultDisplay.getMetrics(metrics)
+        (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.getMetrics(metrics)
 
-        val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = projectionManager.getMediaProjection(resultCode, data)
+        val width = metrics.widthPixels
+        val height = metrics.heightPixels
+        val density = metrics.densityDpi
 
-        imageReader = ImageReader.newInstance(
-            metrics.widthPixels, metrics.heightPixels,
-            PixelFormat.RGBA_8888, 2
-        )
+        imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
 
         virtualDisplay = mediaProjection?.createVirtualDisplay(
             "LiveTranslateX",
-            metrics.widthPixels, metrics.heightPixels, metrics.densityDpi,
+            width, height, density,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
             imageReader?.surface, null, null
         )
+    }
 
-        captureJob = serviceScope.launch {
-            while (isActive) {
-                captureFrame()?.let { bitmap ->
-                    repository.processImage(bitmap, sourceLanguage, targetLanguage)
+    fun captureOnce() {
+        if (!isCapturing || imageReader == null) return
+        scope.launch {
+            delay(300) // attendi frame stabile
+            val image = imageReader?.acquireLatestImage() ?: return@launch
+            try {
+                val plane = image.planes[0]
+                val bitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+                bitmap.copyPixelsFromBuffer(plane.buffer)
+
+                val ocrResult = ocrEngine.recognizeText(bitmap)
+                if (ocrResult.isNotBlank()) {
+                    val translated = translatorEngine.translate(ocrResult)
+                    broadcastResult(ocrResult, translated)
                 }
-                delay(captureIntervalMs)
+                bitmap.recycle()
+            } finally {
+                image.close()
             }
         }
     }
 
-    fun captureFrame(): Bitmap? {
-        val image: Image = imageReader?.acquireLatestImage() ?: return null
-        return try {
-            val planes = image.planes
-            val buffer = planes[0].buffer
-            val pixelStride = planes[0].pixelStride
-            val rowStride = planes[0].rowStride
-            val rowPadding = rowStride - pixelStride * image.width
-            val bitmap = Bitmap.createBitmap(
-                image.width + rowPadding / pixelStride,
-                image.height,
-                Bitmap.Config.ARGB_8888
-            )
-            bitmap.copyPixelsFromBuffer(buffer)
-            bitmap
-        } finally {
-            image.close()
+    private fun broadcastResult(original: String, translated: String) {
+        val intent = Intent(BROADCAST_TRANSLATION).apply {
+            putExtra("original", original)
+            putExtra("translated", translated)
         }
+        sendBroadcast(intent)
     }
 
-    private fun stopCapture() {
-        captureJob?.cancel()
+    private fun stopProjection() {
         virtualDisplay?.release()
         mediaProjection?.stop()
-        imageReader?.close()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        isCapturing = false
         stopSelf()
     }
 
+    override fun onBind(intent: Intent?): IBinder? = null
+
     override fun onDestroy() {
-        stopCapture()
-        serviceScope.cancel()
+        scope.cancel()
+        stopProjection()
+        runCatching { unregisterReceiver(captureReceiver) }
         super.onDestroy()
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID, "Screen Capture",
-            NotificationManager.IMPORTANCE_LOW
-        )
-        val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(channel)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID, "Screen Capture",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
     }
 
     private fun buildNotification(): Notification =
         NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("LiveTranslateX")
-            .setContentText("Traduzione schermo attiva")
+            .setContentText("Acquisizione schermo attiva")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
-            .setOngoing(true)
             .build()
 }
