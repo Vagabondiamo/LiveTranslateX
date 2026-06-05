@@ -3,6 +3,8 @@ package com.livetranslatex.presentation
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -14,7 +16,6 @@ import com.livetranslatex.presentation.image.ImageTranslateScreen
 import com.livetranslatex.presentation.manga.MangaScreen
 import com.livetranslatex.presentation.screen.ScreenTranslateScreen
 import com.livetranslatex.presentation.settings.SettingsScreen
-import com.livetranslatex.presentation.theme.LiveTranslateTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -22,8 +23,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            LiveTranslateTheme {
-                AppNavigation()
+            MaterialTheme {
+                Surface {
+                    AppNavigation()
+                }
             }
         }
     }
@@ -35,19 +38,19 @@ fun AppNavigation() {
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
             HomeScreen(
-                onNavigateToScreen = { navController.navigate("screen") },
-                onNavigateToCamera = { navController.navigate("camera") },
-                onNavigateToImage = { navController.navigate("image") },
-                onNavigateToManga = { navController.navigate("manga") },
-                onNavigateToHistory = { navController.navigate("history") },
+                onNavigateToScreen   = { navController.navigate("screen") },
+                onNavigateToCamera   = { navController.navigate("camera") },
+                onNavigateToImage    = { navController.navigate("image") },
+                onNavigateToManga    = { navController.navigate("manga") },
+                onNavigateToHistory  = { navController.navigate("history") },
                 onNavigateToSettings = { navController.navigate("settings") }
             )
         }
-        composable("screen") { ScreenTranslateScreen(onBack = { navController.popBackStack() }) }
-        composable("camera") { CameraScreen(onBack = { navController.popBackStack() }) }
-        composable("image") { ImageTranslateScreen(onBack = { navController.popBackStack() }) }
-        composable("manga") { MangaScreen(onBack = { navController.popBackStack() }) }
-        composable("history") { HistoryScreen(onBack = { navController.popBackStack() }) }
+        composable("screen")   { ScreenTranslateScreen(onBack = { navController.popBackStack() }) }
+        composable("camera")   { CameraScreen(onBack = { navController.popBackStack() }) }
+        composable("image")    { ImageTranslateScreen(onBack = { navController.popBackStack() }) }
+        composable("manga")    { MangaScreen(onBack = { navController.popBackStack() }) }
+        composable("history")  { HistoryScreen(onBack = { navController.popBackStack() }) }
         composable("settings") { SettingsScreen(onBack = { navController.popBackStack() }) }
     }
 }
