@@ -5,17 +5,17 @@ import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "translation_history")
 data class TranslationHistory(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val original: String,
-    val translated: String,
-    val sourceLanguage: String,
-    val targetLanguage: String,
-    val date: Long = System.currentTimeMillis()
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val originalText: String,
+    val translatedText: String,
+    val sourceLang: String,
+    val targetLang: String,
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 @Dao
 interface TranslationHistoryDao {
-    @Query("SELECT * FROM translation_history ORDER BY date DESC")
+    @Query("SELECT * FROM translation_history ORDER BY timestamp DESC")
     fun getAll(): Flow<List<TranslationHistory>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
