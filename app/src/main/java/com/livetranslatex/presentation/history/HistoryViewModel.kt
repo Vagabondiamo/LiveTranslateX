@@ -19,7 +19,7 @@ class HistoryViewModel @Inject constructor(
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun delete(item: TranslationHistory) {
-        viewModelScope.launch { repository.delete(item) }
+        viewModelScope.launch { repository.deleteById(item.id) }
     }
 
     fun deleteAll() {

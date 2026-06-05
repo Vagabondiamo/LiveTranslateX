@@ -21,8 +21,8 @@ interface TranslationHistoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: TranslationHistory)
 
-    @Delete
-    suspend fun delete(item: TranslationHistory)
+    @Query("DELETE FROM translation_history WHERE id = :id")
+    suspend fun deleteById(id: Int)
 
     @Query("DELETE FROM translation_history")
     suspend fun deleteAll()
