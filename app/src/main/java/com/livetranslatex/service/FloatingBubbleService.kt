@@ -25,6 +25,7 @@ class FloatingBubbleService : Service() {
     private lateinit var bubbleView: View
     private lateinit var overlayView: View
     private var overlayVisible = false
+    private var translationReceiverRegistered = false
 
     companion object {
         const val CHANNEL_ID = "bubble_channel"
@@ -39,6 +40,7 @@ class FloatingBubbleService : Service() {
         startForeground(1, buildNotification())
         inflateBubble()
         inflateOverlay()
+        registerTranslationReceiver()
     }
 
     // ── Bubble ────────────────────────────────────────────────────────────────
@@ -89,7 +91,7 @@ class FloatingBubbleService : Service() {
 
     private fun onBubbleTap() {
         // Manda broadcast a ScreenCaptureService per catturare
-        val intent = Intent(ACTION_CAPTURE)
+        val intent = Intent(ACTION_CAPTURE).setPackage(packageName)
         sendBroadcast(intent)
         showToast("📸 Cattura in corso...")
     }
@@ -143,10 +145,22 @@ class FloatingBubbleService : Service() {
 
     private val translationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != ScreenCaptureService.BROADCAST_TRANSLATION) return
             val original = intent.getStringExtra("original") ?: return
             val translated = intent.getStringExtra("translated") ?: return
             showTranslation(original, translated)
         }
+    }
+
+    private fun registerTranslationReceiver() {
+        val filter = IntentFilter(ScreenCaptureService.BROADCAST_TRANSLATION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(translationReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(translationReceiver, filter)
+        }
+        translationReceiverRegistered = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -160,7 +174,10 @@ class FloatingBubbleService : Service() {
         scope.cancel()
         runCatching { windowManager.removeView(bubbleView) }
         runCatching { windowManager.removeView(overlayView) }
-        unregisterReceiver(translationReceiver)
+        if (translationReceiverRegistered) {
+            runCatching { unregisterReceiver(translationReceiver) }
+            translationReceiverRegistered = false
+        }
         super.onDestroy()
     }
 

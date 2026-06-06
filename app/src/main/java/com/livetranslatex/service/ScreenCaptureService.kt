@@ -5,6 +5,7 @@ import android.content.*
 import android.graphics.*
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
+import android.media.Image
 import android.media.ImageReader
 import android.media.projection.*
 import android.os.*
@@ -28,6 +29,7 @@ class ScreenCaptureService : Service() {
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
     private var isCapturing = false
+    private var captureReceiverRegistered = false
 
     companion object {
         const val CHANNEL_ID = "screen_capture_channel"
@@ -51,9 +53,7 @@ class ScreenCaptureService : Service() {
         super.onCreate()
         createNotificationChannel()
         startForeground(2, buildNotification())
-        registerReceiver(captureReceiver,
-            IntentFilter(FloatingBubbleService.ACTION_CAPTURE),
-            RECEIVER_NOT_EXPORTED)
+        registerCaptureReceiver()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -72,6 +72,15 @@ class ScreenCaptureService : Service() {
     private fun startProjection(resultCode: Int, resultData: Intent) {
         val mpManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         mediaProjection = mpManager.getMediaProjection(resultCode, resultData)
+        mediaProjection?.registerCallback(object : MediaProjection.Callback() {
+            override fun onStop() {
+                virtualDisplay?.release()
+                virtualDisplay = null
+                imageReader?.close()
+                imageReader = null
+                isCapturing = false
+            }
+        }, Handler(Looper.getMainLooper()))
         setupVirtualDisplay()
         isCapturing = true
     }
@@ -96,49 +105,98 @@ class ScreenCaptureService : Service() {
     }
 
     fun captureOnce() {
-        if (!isCapturing || imageReader == null) return
+        if (!isCapturing || imageReader == null) {
+            broadcastResult("", "Cattura schermo non attiva. Avvia di nuovo Traduci Schermo.")
+            return
+        }
+
         scope.launch {
             delay(300) // attendi frame stabile
-            val image = imageReader?.acquireLatestImage() ?: return@launch
+            val image = imageReader?.acquireLatestImage()
+            if (image == null) {
+                broadcastResult("", "Nessun frame disponibile. Tocca di nuovo la bolla.")
+                return@launch
+            }
+
+            var bitmap: Bitmap? = null
             try {
-                val plane = image.planes[0]
-                val bitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
-                bitmap.copyPixelsFromBuffer(plane.buffer)
+                bitmap = image.toBitmap()
 
                 val ocrResult = ocrEngine.recognizeText(bitmap)
                 if (ocrResult.isNotBlank()) {
                     val translated = translatorEngine.translate(ocrResult)
                     broadcastResult(ocrResult, translated)
+                } else {
+                    broadcastResult("", "Nessun testo rilevato sullo schermo.")
                 }
-                bitmap.recycle()
+            } catch (e: Exception) {
+                broadcastResult("", "Errore durante la cattura: ${e.message ?: "sconosciuto"}")
             } finally {
+                bitmap?.recycle()
                 image.close()
             }
         }
     }
 
     private fun broadcastResult(original: String, translated: String) {
-        val intent = Intent(BROADCAST_TRANSLATION).apply {
+        val intent = Intent(BROADCAST_TRANSLATION).setPackage(packageName).apply {
             putExtra("original", original)
             putExtra("translated", translated)
         }
         sendBroadcast(intent)
     }
 
-    private fun stopProjection() {
+    private fun stopProjection(stopService: Boolean = true) {
         virtualDisplay?.release()
+        virtualDisplay = null
+        imageReader?.close()
+        imageReader = null
         mediaProjection?.stop()
+        mediaProjection = null
         isCapturing = false
-        stopSelf()
+        if (stopService) stopSelf()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
         scope.cancel()
-        stopProjection()
-        runCatching { unregisterReceiver(captureReceiver) }
+        stopProjection(stopService = false)
+        if (captureReceiverRegistered) {
+            runCatching { unregisterReceiver(captureReceiver) }
+            captureReceiverRegistered = false
+        }
         super.onDestroy()
+    }
+
+    private fun registerCaptureReceiver() {
+        val filter = IntentFilter(FloatingBubbleService.ACTION_CAPTURE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(captureReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(captureReceiver, filter)
+        }
+        captureReceiverRegistered = true
+    }
+
+    private fun Image.toBitmap(): Bitmap {
+        val plane = planes[0]
+        val buffer = plane.buffer
+        val pixelStride = plane.pixelStride
+        val rowStride = plane.rowStride
+        val rowPadding = rowStride - pixelStride * width
+        val paddedWidth = width + rowPadding / pixelStride
+        val paddedBitmap = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)
+
+        buffer.rewind()
+        paddedBitmap.copyPixelsFromBuffer(buffer)
+
+        if (paddedWidth == width) return paddedBitmap
+
+        val bitmap = Bitmap.createBitmap(paddedBitmap, 0, 0, width, height)
+        paddedBitmap.recycle()
+        return bitmap
     }
 
     private fun createNotificationChannel() {

@@ -4,10 +4,12 @@
 /.idea
 .DS_Store
 /build
+/app/build
 /captures
 .externalNativeBuild
 .cxx
 local.properties
+emulator.log
 
 # API keys - NEVER commit these
 # Store in local.properties:
